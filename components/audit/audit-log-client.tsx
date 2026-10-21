@@ -18,16 +18,93 @@ function formatTimestamp(value: string) {
   return new Date(value).toISOString().replace("T", " ").slice(0, 16);
 }
 
-function describeChange(entry: { oldValues: unknown; newValues: unknown }) {
-  const next = entry.newValues as Record<string, unknown> | null;
-  const old = entry.oldValues as Record<string, unknown> | null;
-  if (!next && !old) return "—";
-  const parts = Object.entries(next ?? {}).map(([key, value]) => {
-    const previous = old?.[key];
-    if (previous === undefined) return `${key}: ${String(value)}`;
-    return `${key}: ${String(previous)} → ${String(value)}`;
-  });
-  return parts.length ? parts.join(", ") : "—";
+const ACTION_LABELS: Record<string, string> = {
+  "tenant.status.changed": "Status changed",
+  "tenant.module.changed": "Portal switched",
+  "tenant.flag.changed": "Feature flag switched",
+  "tenant.provisioned": "School provisioned",
+  "tenant.unarchived": "School restored",
+  "platform.tier.created": "Tier created",
+  "platform.tier.updated": "Tier updated",
+  "platform.tier.deleted": "Tier deleted",
+  "platform.payment.recorded": "Payment recorded",
+  "platform.receipt.issued": "Receipt issued",
+  "platform.expense.logged": "Expense logged",
+  "platform.currency.updated": "Exchange rate changed",
+  "platform.subscription.renewed": "Subscription renewed",
+  "platform.subscription.terminated": "Subscription terminated",
+  "platform.subscription.upgraded": "Subscription upgraded",
+  "announcement.created": "Announcement published",
+  "announcement.updated": "Announcement updated",
+};
+
+function humanValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "on" : "off";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Turns an audit entry into a sentence an operator can read without
+ * decoding JSON. A flag change reads "Feature flag payments.bankak turned on"
+ * rather than {"key":"payments.bankak","enabled":true}.
+ */
+function describeChange(entry: {
+  action: string;
+  oldValues: unknown;
+  newValues: unknown;
+}) {
+  const next = (entry.newValues ?? {}) as Record<string, unknown>;
+  const old = (entry.oldValues ?? {}) as Record<string, unknown>;
+
+  switch (entry.action) {
+    case "tenant.status.changed": {
+      const from = humanValue(old.status);
+      const to = humanValue(next.status);
+      return from === to ? `Status set to ${to}` : `Status ${from} to ${to}`;
+    }
+    case "tenant.module.changed":
+      return `Portal ${humanValue(next.module)} turned ${next.enabled ? "on" : "off"}`;
+    case "tenant.flag.changed":
+      return `Flag ${humanValue(next.key)} turned ${next.enabled ? "on" : "off"}`;
+    case "tenant.provisioned":
+      return `Provisioned with plan ${humanValue(next.planCode)}, ${humanValue(next.modules)} portals`;
+    case "tenant.unarchived":
+      return "School restored from the archive";
+    case "platform.tier.created":
+      return `Tier ${humanValue(next.code)} created`;
+    case "platform.tier.updated":
+      return `Price set to ${humanValue(next.price)}, ${humanValue(next.durationDays)} day term`;
+    case "platform.tier.deleted":
+      return `Tier ${humanValue(old.code)} deleted`;
+    case "platform.payment.recorded":
+      return `${humanValue(next.amount)} ${humanValue(next.currency)} received by ${humanValue(next.method).toLowerCase().replace(/_/g, " ")}`;
+    case "platform.receipt.issued":
+      return `Receipt ${humanValue(next.number)} issued for ${humanValue(next.amount)} ${humanValue(next.currency)}`;
+    case "platform.expense.logged":
+      return `${humanValue(next.title)} · ${humanValue(next.amount)} ${humanValue(next.currency)}`;
+    case "platform.currency.updated":
+      return `Rate ${humanValue(next.previousRateToUsd)} to ${humanValue(next.rateToUsd)}`;
+    case "platform.subscription.renewed":
+      return `Term extended to ${humanValue(next.expiresAt)}`;
+    case "platform.subscription.terminated":
+      return "Subscription ended and the school was locked";
+    case "platform.subscription.upgraded":
+      return `Moved to tier ${humanValue(next.planCode)}`;
+    case "announcement.created":
+      return `Published "${humanValue(next.title)}"`;
+    case "announcement.updated":
+      return `Updated to "${humanValue(next.title)}"`;
+    default: {
+      const parts = Object.entries(next).map(([key, value]) => {
+        const previous = old[key];
+        if (previous === undefined) return `${key} set to ${humanValue(value)}`;
+        return `${key} ${humanValue(previous)} to ${humanValue(value)}`;
+      });
+      return parts.length ? parts.join("; ") : "—";
+    }
+  }
 }
 
 export function AuditLogClient() {
@@ -74,6 +151,17 @@ export function AuditLogClient() {
     };
   }, [appliedAction, page]);
 
+  // The backend filters on the action name; the label filter lets an
+  // operator type what they see ("status changed") as well.
+  const needle = appliedAction.trim().toLowerCase();
+  const visible = data
+    ? data.items.filter((entry) => {
+        if (!needle) return true;
+        const label = (ACTION_LABELS[entry.action] ?? entry.action).toLowerCase();
+        return entry.action.toLowerCase().includes(needle) || label.includes(needle);
+      })
+    : [];
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
@@ -100,7 +188,7 @@ export function AuditLogClient() {
             id="audit-action"
             value={action}
             onChange={(event) => setAction(event.target.value)}
-            placeholder="Filter by action, e.g. tenant.status"
+            placeholder="Filter by action, e.g. status or payment"
           />
         </div>
         <Button type="submit" variant="outline" size="sm">
@@ -159,7 +247,7 @@ export function AuditLogClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.items.map((entry) => (
+                {visible.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {formatTimestamp(entry.createdAt)}
@@ -167,7 +255,9 @@ export function AuditLogClient() {
                     <TableCell className="text-sm">
                       {entry.actorName ?? "System"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{entry.action}</TableCell>
+                    <TableCell className="text-sm">
+                      {ACTION_LABELS[entry.action] ?? entry.action}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {entry.tenantName ?? "—"}
                     </TableCell>

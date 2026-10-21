@@ -179,6 +179,13 @@ export function PlansClient() {
                 }),
               )
             }
+            onDelete={(id) =>
+              run(() =>
+                systemApiFetch(`/platform/plans/${id}`, {
+                  method: "DELETE",
+                }),
+              )
+            }
           />
         </TabsContent>
       </Tabs>

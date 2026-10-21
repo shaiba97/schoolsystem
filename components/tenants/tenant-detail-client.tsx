@@ -135,6 +135,19 @@ export function TenantDetailClient({
     });
   }
 
+  /** Brings an archived school back. The licence is untouched, so a school
+   * whose term ended still needs a renewal. */
+  function restoreSchool() {
+    return run("status", async () => {
+      const result = await systemApiFetch<{ id: string; status: string }>(
+        `/platform/tenants/${tenant.id}/unarchive`,
+        { method: "POST" },
+      );
+      setTenant((current) => ({ ...current, status: result.status as typeof current.status }));
+      router.refresh();
+    });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-3 border-b pb-4">
@@ -167,6 +180,17 @@ export function TenantDetailClient({
                 onClick={() => void changeStatus("ACTIVE")}
               >
                 Reactivate school
+              </Button>
+            ) : null}
+            {tenant.status === "ARCHIVED" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={pending === "status"}
+                onClick={() => void restoreSchool()}
+              >
+                Restore school
               </Button>
             ) : null}
             {tenant.status !== "ARCHIVED" ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import type { PlatformTier } from "@/lib/api/plan-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,12 +62,15 @@ export function TierCards({
   tiers,
   isSuperAdmin,
   onUpdate,
+  onDelete,
 }: {
   tiers: PlatformTier[];
   isSuperAdmin: boolean;
   onUpdate: (id: string, input: Record<string, unknown>) => void;
+  onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = React.useState<PlatformTier | null>(null);
+  const [deleting, setDeleting] = React.useState<PlatformTier | null>(null);
 
   if (tiers.length === 0) {
     return (
@@ -134,10 +137,19 @@ export function TierCards({
             </div>
 
             {isSuperAdmin ? (
-              <div className="mt-auto">
+              <div className="mt-auto flex gap-2">
                 <Button type="button" size="sm" variant="outline" onClick={() => setEditing(tier)}>
                   <Pencil size={14} aria-hidden />
                   Edit tier features &amp; limits
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDeleting(tier)}
+                >
+                  <Trash2 size={14} aria-hidden />
+                  Delete
                 </Button>
               </div>
             ) : null}
@@ -155,7 +167,63 @@ export function TierCards({
           }}
         />
       ) : null}
+
+      {deleting ? (
+        <DeleteTierDialog
+          tier={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            onDelete(deleting.id);
+            setDeleting(null);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function DeleteTierDialog({
+  tier,
+  onClose,
+  onConfirm,
+}: {
+  tier: PlatformTier;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Delete {tier.name}</DialogTitle>
+          <DialogDescription>
+            The {tier.code} tier is removed from the catalogue. A tier that any
+            school still holds cannot be deleted - move those schools to another
+            tier first.
+          </DialogDescription>
+        </DialogHeader>
+
+        <dl className="grid gap-1 border-t pt-3 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-muted-foreground">Tier</dt>
+            <dd className="font-mono text-xs">{tier.code}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-muted-foreground">Price</dt>
+            <dd className="text-sm">{priceLabel(tier)}</dd>
+          </div>
+        </dl>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm}>
+            Delete tier
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
