@@ -1,97 +1,103 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, CircleCheck } from "lucide-react";
 import { ApiError, systemApiFetch } from "@/lib/api/client";
-import {
-  PORTAL_MODULES,
-  type PlatformPlan,
-  type PlatformProvisionResult,
-} from "@/lib/api/platform-types";
+import type { PlatformTier } from "@/lib/api/plan-types";
+import type { PlatformMarket, PlatformProvisionResult } from "@/lib/api/provision-types";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 
 const STEPS = [
   { key: "school", label: "School" },
-  { key: "plan", label: "Plan & portals" },
+  { key: "plan", label: "Plan" },
   { key: "admin", label: "Administrator" },
   { key: "review", label: "Review" },
 ] as const;
 
-const FEATURE_FLAGS = [
-  { key: "portal.transport.tracking", label: "Transport tracking" },
-  { key: "notifications.whatsapp", label: "WhatsApp notifications" },
-  { key: "compliance.vat", label: "VAT compliance" },
-  { key: "payments.bankak", label: "Bankak payments" },
-  { key: "payments.mada_knet", label: "Mada and KNET payments" },
+/**
+ * The markets the platform sells into. The backend holds the same table
+ * (backend/src/platform/platform-markets.ts) and derives the currency and
+ * timezone from it, so this list only decides what the operator sees.
+ */
+const MARKETS: PlatformMarket[] = [
+  { code: "SD", name: "Sudan", nameAr: "السودان", currency: "SDG", timezone: "Africa/Khartoum", dialCode: "+249" },
+  { code: "BH", name: "Bahrain", nameAr: "البحرين", currency: "BHD", timezone: "Asia/Bahrain", dialCode: "+973" },
+  { code: "IQ", name: "Iraq", nameAr: "العراق", currency: "IQD", timezone: "Asia/Baghdad", dialCode: "+964" },
+  { code: "KW", name: "Kuwait", nameAr: "الكويت", currency: "KWD", timezone: "Asia/Kuwait", dialCode: "+965" },
+  { code: "OM", name: "Oman", nameAr: "عُمان", currency: "OMR", timezone: "Asia/Muscat", dialCode: "+968" },
+  { code: "QA", name: "Qatar", nameAr: "قطر", currency: "QAR", timezone: "Asia/Qatar", dialCode: "+974" },
+  { code: "SA", name: "Saudi Arabia", nameAr: "السعودية", currency: "SAR", timezone: "Asia/Riyadh", dialCode: "+966" },
+  { code: "AE", name: "United Arab Emirates", nameAr: "الإمارات", currency: "AED", timezone: "Asia/Dubai", dialCode: "+971" },
 ];
+
+const USD = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
 
 type FormState = {
   name: string;
-  slug: string;
+  nameAr: string;
   email: string;
   phone: string;
   countryCode: string;
-  currencyCode: string;
-  timezone: string;
   planCode: string;
+  studentCount: string;
   adminName: string;
   adminEmail: string;
+  adminPhone: string;
   adminPassword: string;
-  modules: string[];
-  featureFlags: Record<string, boolean>;
 };
 
 const EMPTY: FormState = {
   name: "",
-  slug: "",
+  nameAr: "",
   email: "",
   phone: "",
   countryCode: "SD",
-  currencyCode: "SDG",
-  timezone: "Africa/Khartoum",
   planCode: "",
+  studentCount: "",
   adminName: "",
   adminEmail: "",
+  adminPhone: "",
   adminPassword: "",
-  modules: [...PORTAL_MODULES],
-  featureFlags: Object.fromEntries(FEATURE_FLAGS.map((flag) => [flag.key, false])),
 };
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 export function ProvisionTenantWizard() {
   const router = useRouter();
   const [step, setStep] = React.useState(0);
   const [form, setForm] = React.useState<FormState>(EMPTY);
-  const [plans, setPlans] = React.useState<PlatformPlan[]>([]);
+  const [plans, setPlans] = React.useState<PlatformTier[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [result, setResult] = React.useState<PlatformProvisionResult | null>(null);
-  const [slugTouched, setSlugTouched] = React.useState(false);
+
+  const market = MARKETS.find((entry) => entry.code === form.countryCode) ?? MARKETS[0];
+  const plan = plans.find((entry) => entry.code === form.planCode) ?? null;
+  const students = Number(form.studentCount) || 0;
+  const monthlyUsd = plan ? plan.price * (students > 0 ? students : 1) : 0;
 
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const rows = await systemApiFetch<PlatformPlan[]>("/platform/plans");
-        if (!cancelled) {
-          setPlans(rows.filter((plan) => plan.isActive));
-          setForm((current) =>
-            current.planCode
-              ? current
-              : { ...current, planCode: rows.find((plan) => plan.isActive)?.code ?? "" },
-          );
-        }
+        const rows = await systemApiFetch<PlatformTier[]>("/platform/plans");
+        if (cancelled) return;
+        const active = rows.filter((entry) => entry.isActive);
+        setPlans(active);
+        setForm((current) =>
+          current.planCode
+            ? current
+            : { ...current, planCode: active.find((entry) => entry.code === "PRIMARY")?.code ?? active[0]?.code ?? "" },
+        );
       } catch {
         // The plan list only narrows the choice; provisioning without one is valid.
       }
@@ -106,31 +112,17 @@ export function ProvisionTenantWizard() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function toggleModule(module: string) {
-    setForm((current) => ({
-      ...current,
-      modules: current.modules.includes(module)
-        ? current.modules.filter((entry) => entry !== module)
-        : [...current.modules, module],
-    }));
-  }
-
-  function toggleFlag(key: string) {
-    setForm((current) => ({
-      ...current,
-      featureFlags: { ...current.featureFlags, [key]: !current.featureFlags[key] },
-    }));
-  }
-
   const stepErrors = React.useMemo(() => {
     const errors: Record<number, string> = {};
     if (form.name.trim().length < 2) errors[0] = "Enter the school's name.";
-    else if (form.slug && !/^[a-z0-9][a-z0-9-]{1,98}[a-z0-9]$/.test(form.slug))
-      errors[0] = "The slug may only contain lowercase letters, digits, and hyphens.";
     if (form.adminName.trim().length < 3) errors[2] = "Enter the administrator's name.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.adminEmail.trim()))
       errors[2] = "Enter a valid administrator email.";
-    if (form.adminPassword.length < 8 || !/[A-Za-z]/.test(form.adminPassword) || !/\d/.test(form.adminPassword))
+    if (
+      form.adminPassword.length < 8 ||
+      !/[A-Za-z]/.test(form.adminPassword) ||
+      !/\d/.test(form.adminPassword)
+    )
       errors[2] = "Use at least 8 characters with a letter and a number.";
     return errors;
   }, [form]);
@@ -139,28 +131,31 @@ export function ProvisionTenantWizard() {
     setPending(true);
     setError(null);
     try {
-      const created = await systemApiFetch<PlatformProvisionResult>("/platform/tenants", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          slug: form.slug.trim() || undefined,
-          email: form.email.trim() || undefined,
-          phone: form.phone.trim() || undefined,
-          countryCode: form.countryCode.trim().toUpperCase() || undefined,
-          currencyCode: form.currencyCode.trim().toUpperCase() || undefined,
-          timezone: form.timezone.trim() || undefined,
-          adminName: form.adminName.trim(),
-          adminEmail: form.adminEmail.trim(),
-          adminPassword: form.adminPassword,
-          planCode: form.planCode || undefined,
-          modules: form.modules,
-          featureFlags: form.featureFlags,
-        }),
-      });
+      const created = await systemApiFetch<PlatformProvisionResult>(
+        "/platform/tenants",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.name.trim(),
+            nameAr: form.nameAr.trim() || undefined,
+            countryCode: form.countryCode,
+            email: form.email.trim() || undefined,
+            phone: form.phone.trim() || undefined,
+            adminName: form.adminName.trim(),
+            adminEmail: form.adminEmail.trim(),
+            adminPhone: form.adminPhone.trim() || undefined,
+            adminPassword: form.adminPassword,
+            planCode: form.planCode || undefined,
+            studentCount: students > 0 ? students : undefined,
+          }),
+        },
+      );
       setResult(created);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "The school could not be provisioned.",
+        err instanceof ApiError
+          ? err.message
+          : "The school could not be provisioned.",
       );
     } finally {
       setPending(false);
@@ -179,26 +174,51 @@ export function ProvisionTenantWizard() {
             <dt className="text-sm text-muted-foreground">School</dt>
             <dd className="text-sm">{result.tenant.name}</dd>
           </div>
+          {result.tenant.nameAr ? (
+            <div className="flex items-center justify-between py-2">
+              <dt className="text-sm text-muted-foreground">Name in Arabic</dt>
+              <dd className="text-sm" dir="rtl">
+                {result.tenant.nameAr}
+              </dd>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between py-2">
-            <dt className="text-sm text-muted-foreground">Slug</dt>
-            <dd className="font-mono text-sm">{result.tenant.slug}</dd>
+            <dt className="text-sm text-muted-foreground">Market</dt>
+            <dd className="text-sm">
+              {result.tenant.countryCode} Â· {result.tenant.currencyCode} Â·{" "}
+              {result.tenant.timezone}
+            </dd>
           </div>
           <div className="flex items-center justify-between py-2">
             <dt className="text-sm text-muted-foreground">Administrator</dt>
-            <dd className="text-sm">{result.admin.email}</dd>
+            <dd className="text-sm">
+              {result.admin.email}
+              {result.admin.staffNumber ? (
+                <span className="ml-2 font-mono text-xs text-muted-foreground">
+                  {result.admin.staffNumber}
+                </span>
+              ) : null}
+            </dd>
           </div>
           <div className="flex items-center justify-between py-2">
             <dt className="text-sm text-muted-foreground">Portals enabled</dt>
             <dd className="font-mono text-sm">{result.modules.length}</dd>
           </div>
-          <div className="flex items-center justify-between py-2">
-            <dt className="text-sm text-muted-foreground">License</dt>
-            <dd className="text-sm">{result.license?.planCode ?? "None"}</dd>
-          </div>
+          {result.license ? (
+            <div className="flex items-center justify-between py-2">
+              <dt className="text-sm text-muted-foreground">Monthly amount</dt>
+              <dd className="font-mono text-sm">
+                {USD.format(result.license.monthlyUsd)}{" "}
+                <span className="text-xs text-muted-foreground">
+                  {result.license.studentCount} students
+                </span>
+              </dd>
+            </div>
+          ) : null}
         </dl>
         <p className="text-sm text-muted-foreground">
-          The administrator can sign in to the admin portal with the password you just
-          set. Share it once, through a channel you trust.
+          The administrator can sign in to the admin portal with the password you
+          just set. Share it once, through a channel you trust.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => router.push(`/tenants/${result.tenant.id}`)}>
@@ -212,7 +232,6 @@ export function ProvisionTenantWizard() {
               setResult(null);
               setForm(EMPTY);
               setStep(0);
-              setSlugTouched(false);
             }}
           >
             Provision another school
@@ -230,8 +249,8 @@ export function ProvisionTenantWizard() {
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold tracking-tight">Provision a school</h1>
         <p className="text-sm text-muted-foreground">
-          Creates the tenant, its first administrator, the portal switches, and the
-          first license in one step.
+          Creates the school, its first administrator, every portal, and the first
+          license in one step.
         </p>
       </header>
 
@@ -273,34 +292,46 @@ export function ProvisionTenantWizard() {
       {step === 0 ? (
         <section className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="school-name">School name</Label>
+            <Label htmlFor="school-name">School name (English)</Label>
             <Input
               id="school-name"
               value={form.name}
-              onChange={(event) => {
-                const name = event.target.value;
-                setForm((current) => ({
-                  ...current,
-                  name,
-                  slug: slugTouched ? current.slug : slugify(name),
-                }));
-              }}
+              onChange={(event) => update("name", event.target.value)}
               placeholder="Springfield Academy"
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="school-slug">Slug</Label>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="school-name-ar">School name (Arabic)</Label>
             <Input
-              id="school-slug"
-              value={form.slug}
-              onChange={(event) => {
-                setSlugTouched(true);
-                update("slug", event.target.value);
-              }}
-              placeholder="springfield-academy"
+              id="school-name-ar"
+              dir="rtl"
+              value={form.nameAr}
+              onChange={(event) => update("nameAr", event.target.value)}
+              placeholder="أكاديمية سبرينغفيلد"
             />
             <p className="text-xs text-muted-foreground">
-              Used in the portal URL. Lowercase letters, digits, and hyphens.
+              Optional. The English name is what the platform uses everywhere else.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="school-country">Country</Label>
+            <NativeSelect
+              id="school-country"
+              value={form.countryCode}
+              onChange={(event) => update("countryCode", event.target.value)}
+            >
+              {MARKETS.map((entry) => (
+                <NativeSelectOption key={entry.code} value={entry.code}>
+                  {entry.name} Â· {entry.nameAr}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="school-currency">Currency</Label>
+            <Input id="school-currency" value={market.currency} readOnly />
+            <p className="text-xs text-muted-foreground">
+              Follows the country: {market.currency} in {market.timezone}.
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -314,80 +345,62 @@ export function ProvisionTenantWizard() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="school-phone">Phone</Label>
+            <Label htmlFor="school-phone">Contact phone</Label>
             <Input
               id="school-phone"
               value={form.phone}
               onChange={(event) => update("phone", event.target.value)}
-              placeholder="+249 90 000 0001"
+              placeholder={`${market.dialCode} 90 000 0001`}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="school-country">Country code</Label>
-            <Input
-              id="school-country"
-              value={form.countryCode}
-              maxLength={2}
-              onChange={(event) => update("countryCode", event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="school-currency">Currency</Label>
-            <Input
-              id="school-currency"
-              value={form.currencyCode}
-              maxLength={3}
-              onChange={(event) => update("currencyCode", event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="school-timezone">Timezone</Label>
-            <Input
-              id="school-timezone"
-              value={form.timezone}
-              onChange={(event) => update("timezone", event.target.value)}
-            />
+            <p className="text-xs text-muted-foreground">
+              Country calling code {market.dialCode}.
+            </p>
           </div>
         </section>
       ) : null}
 
       {step === 1 ? (
-        <section className="grid gap-8 md:grid-cols-2">
+        <section className="flex flex-col gap-6">
           <div>
             <h2 className="text-sm font-semibold">Plan</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              The plan decides the license the school starts with. It can be changed
-              later from licensing.
+              The plan sets the price per student per month. The school gets every
+              portal and every feature flag, and the licence covers the student
+              count you enter.
             </p>
             {plans.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
-                No active plans are defined yet — the school will start unlicensed.
+                No active plans are defined yet - the school will start without a
+                licence.
               </p>
             ) : (
               <ul className="mt-3 divide-y border-t">
-                {plans.map((plan) => (
-                  <li key={plan.id} className="flex items-center gap-3 py-2">
+                {plans.map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-3 py-2">
                     <input
                       type="radio"
-                      id={`plan-${plan.code}`}
+                      id={`plan-${entry.code}`}
                       name="plan"
-                      value={plan.code}
-                      checked={form.planCode === plan.code}
-                      onChange={() => update("planCode", plan.code)}
+                      value={entry.code}
+                      checked={form.planCode === entry.code}
+                      onChange={() => update("planCode", entry.code)}
                       className="size-4 accent-primary"
                     />
-                    <label htmlFor={`plan-${plan.code}`} className="flex-1 text-sm">
-                      {plan.name}
+                    <label htmlFor={`plan-${entry.code}`} className="flex-1 text-sm">
+                      {entry.name}
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {plan.billingModel === "ANNUAL" ? "per year" : "one-off"}
+                        {entry.target}
                       </span>
                     </label>
                     <span className="font-mono text-sm">
-                      {plan.price.toLocaleString("en-US", {
+                      {entry.price.toLocaleString("en-US", {
                         style: "currency",
-                        currency: plan.currency,
+                        currency: entry.currency,
                         maximumFractionDigits: 0,
                       })}
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        / student / month
+                      </span>
                     </span>
                   </li>
                 ))}
@@ -395,44 +408,22 @@ export function ProvisionTenantWizard() {
             )}
           </div>
 
-          <div className="flex flex-col gap-6">
-            <div>
-              <h2 className="text-sm font-semibold">Portals</h2>
-              <ul className="mt-3 divide-y border-t">
-                {PORTAL_MODULES.map((module) => (
-                  <li key={module} className="flex items-center gap-3 py-2">
-                    <Checkbox
-                      id={`module-${module}`}
-                      checked={form.modules.includes(module)}
-                      onCheckedChange={() => toggleModule(module)}
-                    />
-                    <label
-                      htmlFor={`module-${module}`}
-                      className="text-sm capitalize"
-                    >
-                      {module.toLowerCase()}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold">Feature flags</h2>
-              <ul className="mt-3 divide-y border-t">
-                {FEATURE_FLAGS.map((flag) => (
-                  <li key={flag.key} className="flex items-center gap-3 py-2">
-                    <Checkbox
-                      id={`flag-${flag.key}`}
-                      checked={form.featureFlags[flag.key] ?? false}
-                      onCheckedChange={() => toggleFlag(flag.key)}
-                    />
-                    <label htmlFor={`flag-${flag.key}`} className="text-sm">
-                      {flag.label}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="flex max-w-xs flex-col gap-1.5">
+            <Label htmlFor="student-count">Licensed students</Label>
+            <Input
+              id="student-count"
+              type="number"
+              min="0"
+              step="1"
+              value={form.studentCount}
+              onChange={(event) => update("studentCount", event.target.value)}
+              placeholder="400"
+            />
+            <p className="text-xs text-muted-foreground">
+              {students > 0 && plan
+                ? `Monthly amount: ${USD.format(monthlyUsd)} (${plan.price} per student)`
+                : "The monthly amount follows from the plan price and this number."}
+            </p>
           </div>
         </section>
       ) : null}
@@ -459,6 +450,15 @@ export function ProvisionTenantWizard() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="admin-phone">Administrator phone</Label>
+            <Input
+              id="admin-phone"
+              value={form.adminPhone}
+              onChange={(event) => update("adminPhone", event.target.value)}
+              placeholder={`${market.dialCode} 50 000 0000`}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="admin-password">Temporary password</Label>
             <Input
               id="admin-password"
@@ -469,8 +469,8 @@ export function ProvisionTenantWizard() {
               autoComplete="new-password"
             />
             <p className="text-xs text-muted-foreground">
-              Share it once, through a channel you trust. The school admin can change
-              it after the first sign-in.
+              The staff ID is issued automatically and shown on the next screen.
+              Share the password once, through a channel you trust.
             </p>
           </div>
         </section>
@@ -483,42 +483,48 @@ export function ProvisionTenantWizard() {
             <dl className="mt-3 divide-y border-t">
               <div className="flex items-center justify-between gap-4 py-2">
                 <dt className="text-sm text-muted-foreground">Name</dt>
-                <dd className="text-sm">{form.name || "—"}</dd>
+                <dd className="text-sm">{form.name || "â€”"}</dd>
               </div>
+              {form.nameAr ? (
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="text-sm text-muted-foreground">Name in Arabic</dt>
+                  <dd className="text-sm" dir="rtl">
+                    {form.nameAr}
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Slug</dt>
-                <dd className="font-mono text-sm">{form.slug || "—"}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Country</dt>
+                <dt className="text-sm text-muted-foreground">Market</dt>
                 <dd className="text-sm">
-                  {form.countryCode || "—"} · {form.currencyCode || "—"}
+                  {market.name} Â· {market.currency}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Plan</dt>
-                <dd className="text-sm">
-                  {plans.find((plan) => plan.code === form.planCode)?.name ?? "None"}
-                </dd>
+                <dt className="text-sm text-muted-foreground">Timezone</dt>
+                <dd className="text-sm">{market.timezone}</dd>
               </div>
             </dl>
           </div>
           <div>
-            <h2 className="text-sm font-semibold">Access</h2>
+            <h2 className="text-sm font-semibold">Subscription &amp; access</h2>
             <dl className="mt-3 divide-y border-t">
               <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Administrator</dt>
-                <dd className="text-sm">{form.adminEmail || "—"}</dd>
+                <dt className="text-sm text-muted-foreground">Plan</dt>
+                <dd className="text-sm">{plan?.name ?? "None"}</dd>
               </div>
               <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Portals</dt>
-                <dd className="text-sm">{form.modules.length} of {PORTAL_MODULES.length}</dd>
+                <dt className="text-sm text-muted-foreground">Students</dt>
+                <dd className="font-mono text-sm">{students || "â€”"}</dd>
               </div>
               <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Feature flags</dt>
-                <dd className="text-sm">
-                  {Object.values(form.featureFlags).filter(Boolean).length} on
+                <dt className="text-sm text-muted-foreground">Monthly amount</dt>
+                <dd className="font-mono text-sm">
+                  {plan ? USD.format(monthlyUsd) : "â€”"}
                 </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <dt className="text-sm text-muted-foreground">Administrator</dt>
+                <dd className="text-sm">{form.adminEmail || "â€”"}</dd>
               </div>
             </dl>
           </div>
@@ -550,12 +556,16 @@ export function ProvisionTenantWizard() {
           </Button>
         ) : (
           <Button type="button" disabled={pending} onClick={() => void provision()}>
-            {pending ? "Provisioning…" : "Provision school"}
+            {pending ? "Provisioningâ€¦" : "Provision school"}
           </Button>
         )}
-        <Link href="/tenants" className="ml-auto text-sm text-muted-foreground hover:underline">
+        <button
+          type="button"
+          onClick={() => router.push("/tenants")}
+          className="ml-auto text-sm text-muted-foreground hover:underline"
+        >
           Cancel
-        </Link>
+        </button>
       </div>
     </div>
   );
