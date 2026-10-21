@@ -159,11 +159,14 @@ export function PlansClient() {
                 }),
               )
             }
-            onUpgrade={(tenantId, planId) =>
+            onUpgrade={(tenantId, planId, pricePerStudent) =>
               run(() =>
                 systemApiFetch(`/platform/plans/subscriptions/${tenantId}/upgrade`, {
                   method: "POST",
-                  body: JSON.stringify({ planId }),
+                  body: JSON.stringify({
+                    planId,
+                    ...(pricePerStudent ? { pricePerStudent } : {}),
+                  }),
                 }),
               )
             }

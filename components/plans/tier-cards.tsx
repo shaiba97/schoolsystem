@@ -96,9 +96,7 @@ export function TierCards({
             <p className="font-mono text-lg">{priceLabel(tier)}</p>
             <p className="text-xs text-muted-foreground">
               {tier.price > 0 ? "per student / month" : "price on request"} ·{" "}
-              {tier.billingModel === "ANNUAL"
-                ? `${tier.durationDays} day term, then it ends`
-                : `one-off, ${tier.durationDays} day term`}
+              {tier.durationDays} day term, then it ends
             </p>
 
             <div>

@@ -4,7 +4,8 @@ export type PlatformTier = {
   name: string;
   tier: string | null;
   target: string | null;
-  billingModel: "ANNUAL" | "LIFETIME";
+  /** A tier is always billed yearly; the term length is durationDays. */
+  billingModel: "ANNUAL";
   price: number;
   priceMax: number | null;
   currency: string;

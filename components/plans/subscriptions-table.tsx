@@ -72,7 +72,7 @@ export function SubscriptionsTable({
   isSuperAdmin: boolean;
   onRenew: (tenantId: string, expiresAt?: string, studentCount?: number) => void;
   onTerminate: (tenantId: string) => void;
-  onUpgrade: (tenantId: string, planId: string) => void;
+  onUpgrade: (tenantId: string, planId: string, pricePerStudent?: number) => void;
 }) {
   const [search, setSearch] = React.useState("");
   const [tier, setTier] = React.useState("");
@@ -260,8 +260,8 @@ export function SubscriptionsTable({
           subscription={upgrading}
           tiers={tiers}
           onClose={() => setUpgrading(null)}
-          onSubmit={(planId) => {
-            onUpgrade(upgrading.tenantId, planId);
+          onSubmit={(planId, pricePerStudent) => {
+            onUpgrade(upgrading.tenantId, planId, pricePerStudent);
             setUpgrading(null);
           }}
         />
@@ -420,14 +420,17 @@ function UpgradeDialog({
   subscription: PlatformSubscription;
   tiers: PlatformTier[];
   onClose: () => void;
-  onSubmit: (planId: string) => void;
+  onSubmit: (planId: string, pricePerStudent?: number) => void;
 }) {
   const [planId, setPlanId] = React.useState(
     tiers.find((tier) => tier.code !== subscription.tier)?.id ?? tiers[0]?.id ?? "",
   );
+  const [quoted, setQuoted] = React.useState("");
   const chosen = tiers.find((tier) => tier.id === planId);
   const students = subscription.studentCount || 0;
-  const newMonthly = chosen ? chosen.price * (students || 1) : 0;
+  const rate = quoted ? Number(quoted) : (chosen?.price ?? 0);
+  const newMonthly = rate * (students || 1);
+  const needsQuote = chosen ? chosen.price === 0 : false;
 
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
@@ -436,7 +439,8 @@ function UpgradeDialog({
           <DialogTitle>Move to another tier</DialogTitle>
           <DialogDescription>
             {subscription.name} moves from {subscription.tier ?? "no tier"}. The
-            portals the new tier includes are switched on for the school.
+            portals the new tier includes are switched on for the school, and the
+            tier&apos;s year starts now.
           </DialogDescription>
         </DialogHeader>
 
@@ -455,16 +459,30 @@ function UpgradeDialog({
           </NativeSelect>
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="upgrade-price">
+            Price per student / month{needsQuote ? " (quoted)" : ""}
+          </Label>
+          <Input
+            id="upgrade-price"
+            type="number"
+            min="0"
+            step="1"
+            value={quoted}
+            placeholder={chosen ? String(chosen.price) : "0"}
+            onChange={(event) => setQuoted(event.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {needsQuote
+              ? "This tier is priced on request, so set the agreed rate here."
+              : "Leave empty to use the tier's list price."}
+          </p>
+        </div>
+
         <dl className="divide-y border-t">
           <div className="flex items-center justify-between py-2">
             <dt className="text-sm text-muted-foreground">Licensed students</dt>
             <dd className="font-mono text-sm">{students || "—"}</dd>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <dt className="text-sm text-muted-foreground">Price per student</dt>
-            <dd className="font-mono text-sm">
-              {chosen ? USD.format(chosen.price) : "—"}
-            </dd>
           </div>
           <div className="flex items-center justify-between py-2">
             <dt className="text-sm text-muted-foreground">New monthly amount</dt>
@@ -478,7 +496,13 @@ function UpgradeDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" disabled={!planId} onClick={() => onSubmit(planId)}>
+          <Button
+            type="button"
+            disabled={!planId}
+            onClick={() =>
+              onSubmit(planId, quoted ? Number(quoted) : undefined)
+            }
+          >
             Upgrade
           </Button>
         </DialogFooter>
