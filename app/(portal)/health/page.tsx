@@ -1,11 +1,7 @@
-import { PlaceholderPage } from "@/components/portal/placeholder-page";
+import { HealthClient } from "@/components/health/health-client";
+
+export const dynamic = "force-dynamic";
 
 export default function HealthPage() {
-  return (
-    <PlaceholderPage
-      title="System health"
-      description="Backend availability, live connections, storage footprint, and version."
-      phase="phase 6 (health & observability)"
-    />
-  );
+  return <HealthClient />;
 }

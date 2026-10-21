@@ -185,9 +185,14 @@ export function TenantsDirectoryClient() {
                         className="font-medium hover:underline"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        {tenant.name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">{tenant.slug}</p>
+                      {tenant.name}
+                    </Link>
+                    {tenant.nameAr ? (
+                      <p className="text-xs text-muted-foreground" dir="rtl">
+                        {tenant.nameAr}
+                      </p>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground">{tenant.slug}</p>
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[tenant.status]}>{tenant.status}</Badge>

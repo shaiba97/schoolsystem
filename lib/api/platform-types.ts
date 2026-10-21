@@ -29,6 +29,7 @@ export type PlatformPlanSummary = {
 export type PlatformTenantListItem = {
   id: string;
   name: string;
+  nameAr: string | null;
   slug: string;
   status: "ACTIVE" | "TRIAL" | "PENDING" | "SUSPENDED" | "ARCHIVED";
   email: string | null;
@@ -53,6 +54,7 @@ export type PlatformTenantList = {
 export type PlatformTenantDetail = {
   id: string;
   name: string;
+  nameAr: string | null;
   slug: string;
   status: PlatformTenantListItem["status"];
   email: string | null;

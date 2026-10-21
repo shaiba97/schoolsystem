@@ -155,6 +155,11 @@ export function TenantDetailClient({
           <h1 className="text-xl font-semibold tracking-tight">{tenant.name}</h1>
           <Badge variant={STATUS_VARIANT[tenant.status]}>{tenant.status}</Badge>
         </div>
+        {tenant.nameAr ? (
+          <p className="text-sm text-muted-foreground" dir="rtl">
+            {tenant.nameAr}
+          </p>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           {tenant.slug} · created {formatDate(tenant.createdAt)}
         </p>
