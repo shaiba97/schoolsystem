@@ -1,12 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   experimental: {
     agentFeedback: true,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
+  // NOTE: cacheComponents off (matches admin/student/teacher/guardian):
+  // cookie-read layouts forbid static prerendering under that paradigm, and
+  // partialPrefetching requires it. See guardian/DECISIONS.md.
   turbopack: {
     rules: {
       "*.css": {
