@@ -47,3 +47,10 @@ in the repository-level `DECISIONS.md`.
 - **Actions** are SUPER_ADMIN-only and hidden for support accounts: record a payment (dialog with amount, currency, method, date, reference, notes), issue a receipt for money already received, view a school's payment history, and log a platform expense.
 - **Honest numbers**: a school whose currency has no configured rate shows "no rate for XXX" instead of a converted figure, and its status reads UNPRICED. The P&L reports how many payments and expenses could not be converted rather than folding them into the totals.
 - **Country codes, not flag emoji**: Windows renders flag emoji as letter pairs, so a market is identified by its ISO code badge.
+
+## 2026-10-21 - Audit log readability, market-driven wizard, health page
+
+- **The audit log reads as sentences.** It used to print the raw JSON payload, so a flag change looked like {"key":"payments.bankak","enabled":true}. Each entry now reads "Flag payments.bankak turned on" or "Status ACTIVE to SUSPENDED", the action column carries a plain label, and the filter matches those labels - you can search for what you see instead of the action name.
+- **The provisioning wizard asks for a country, not a currency.** One of the eight markets is picked and the currency and timezone follow from it, so a school cannot end up billing in a currency that does not match the country it is in. The name can be entered in both English and Arabic. The slug field is gone. The plan step states the price per student per month and takes the licensed student count, so the monthly amount is visible before the school is created. The administrator step asks for a phone number and says the staff ID is issued automatically - the ID and the monthly amount are shown once the school exists.
+- **System health page**: database latency, counts across schools, users and licences, open sockets, storage used, process memory, with a refresh button.
+- **Tier delete and school restore**: the tier cards carry a delete action with a confirmation that names the tier; an archived school carries a restore button.
