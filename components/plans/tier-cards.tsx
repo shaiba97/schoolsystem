@@ -95,9 +95,10 @@ export function TierCards({
 
             <p className="font-mono text-lg">{priceLabel(tier)}</p>
             <p className="text-xs text-muted-foreground">
+              {tier.price > 0 ? "per student / month" : "price on request"} ·{" "}
               {tier.billingModel === "ANNUAL"
-                ? `Billed yearly · ${tier.durationDays} day term`
-                : `One-off · ${tier.durationDays} day term`}
+                ? `${tier.durationDays} day term, then it ends`
+                : `one-off, ${tier.durationDays} day term`}
             </p>
 
             <div>
@@ -265,7 +266,7 @@ function EditTierDialog({
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tier-price">Price (USD)</Label>
+              <Label htmlFor="tier-price">Price per student / month (USD)</Label>
               <Input
                 id="tier-price"
                 type="number"
@@ -274,6 +275,10 @@ function EditTierDialog({
                 value={price}
                 onChange={(event) => setPrice(event.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                A school&apos;s monthly amount is this price times its licensed
+                students.
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="tier-price-max">Price ceiling</Label>
@@ -298,6 +303,10 @@ function EditTierDialog({
               value={durationDays}
               onChange={(event) => setDurationDays(event.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              365 gives a year. The licence ends on this date and the school is
+              locked until it is renewed.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">

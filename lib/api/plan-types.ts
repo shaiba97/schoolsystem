@@ -27,8 +27,13 @@ export type PlatformSubscription = {
   tier: string | null;
   tierName: string | null;
   tierLabel: string | null;
+  /** Price per student per month, in the tier's own currency. */
   price: number | null;
   currency: string;
+  /** Students the licence covers. */
+  studentCount: number;
+  /** The monthly amount: price per student times the licensed students. */
+  monthlyUsd: number;
   startedAt: string | null;
   expiresAt: string | null;
   daysRemaining: number | null;

@@ -141,11 +141,14 @@ export function PlansClient() {
             rows={subscriptions}
             tiers={tiers}
             isSuperAdmin={isSuperAdmin}
-            onRenew={(tenantId, expiresAt) =>
+            onRenew={(tenantId, expiresAt, studentCount) =>
               run(() =>
                 systemApiFetch(`/platform/plans/subscriptions/${tenantId}/renew`, {
                   method: "POST",
-                  body: JSON.stringify(expiresAt ? { expiresAt } : {}),
+                  body: JSON.stringify({
+                    ...(expiresAt ? { expiresAt } : {}),
+                    ...(studentCount ? { studentCount } : {}),
+                  }),
                 }),
               )
             }
