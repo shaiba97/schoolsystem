@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
+  Banknote,
   Building2,
   CreditCard,
   LayoutDashboard,
@@ -45,6 +46,7 @@ export const NAV_SECTIONS: NavSection[] = [
     roles: ["SUPER_ADMIN"],
     items: [
       { href: "/licensing", label: "Licensing & Billing", icon: CreditCard },
+      { href: "/financials", label: "Financial Affairs", icon: Banknote },
       { href: "/announcements", label: "Announcements", icon: Megaphone },
       { href: "/audit", label: "Platform Audit Log", icon: ScrollText },
     ],

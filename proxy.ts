@@ -10,6 +10,7 @@ const PORTAL_PATHS = [
   "/audit",
   "/announcements",
   "/licensing",
+  "/financials",
 ];
 
 /**
@@ -45,12 +46,14 @@ export const config = {
     "/audit",
     "/announcements",
     "/licensing",
+    "/financials",
     "/dashboard/:path*",
     "/tenants/:path*",
     "/health/:path*",
     "/audit/:path*",
     "/announcements/:path*",
     "/licensing/:path*",
+    "/financials/:path*",
     "/login",
   ],
 };

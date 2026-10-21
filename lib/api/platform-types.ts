@@ -164,3 +164,85 @@ export type PlatformProvisionResult = {
   modules: string[];
   featureFlags: Record<string, boolean>;
 };
+
+export type PlatformFinancialsOverview = {
+  baseCurrency: string;
+  totals: {
+    revenue: number;
+    expenses: number;
+    netProfit: number;
+    marginPct: number;
+    paymentCount: number;
+    expenseCount: number;
+  };
+  countries: Array<{
+    countryCode: string;
+    currency: string;
+    rateToUsd: number;
+    localIncome: number;
+    localExpenses: number;
+    localNet: number;
+    netProfitUsd: number;
+    marginPct: number;
+  }>;
+  rates: PlatformCurrencyRow[];
+};
+
+export type PlatformCurrencyRow = {
+  code: string;
+  name: string;
+  countryCode: string | null;
+  rateToUsd: number;
+  autoSync: boolean;
+  lastSyncedAt: string | null;
+};
+
+export type PlatformSubscriptionFinancial = {
+  tenantId: string;
+  name: string;
+  slug: string;
+  countryCode: string | null;
+  logoUrl: string | null;
+  tenantStatus: string;
+  tier: string | null;
+  tierName: string | null;
+  licenseId: string | null;
+  startedAt: string | null;
+  expiresAt: string | null;
+  currency: string;
+  /** False when the school bills in a currency with no configured rate. */
+  currencyConfigured: boolean;
+  localPrice: number | null;
+  priceUsd: number;
+  rateToUsd: number | null;
+  paidAmount: number;
+  outstanding: number | null;
+  status: "PAID" | "PARTIAL" | "OVERDUE" | "UNPRICED";
+  paymentType: string | null;
+};
+
+export type PlatformExpenseRow = {
+  id: string;
+  title: string;
+  category: string;
+  countryCode: string | null;
+  amount: number;
+  currency: string;
+  paidAt: string;
+  notes: string | null;
+  recordedBy: string | null;
+};
+
+export type PlatformPaymentRow = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  licenseId: string | null;
+  amount: number;
+  currency: string;
+  method: string;
+  type: string;
+  paidAt: string;
+  reference: string | null;
+  notes: string | null;
+};
