@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
+  BadgeDollarSign,
   Banknote,
   Building2,
-  CreditCard,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -45,7 +45,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: "Platform Operations",
     roles: ["SUPER_ADMIN"],
     items: [
-      { href: "/licensing", label: "Licensing & Billing", icon: CreditCard },
+      { href: "/plans", label: "Plans & Subscription", icon: BadgeDollarSign },
       { href: "/financials", label: "Financial Affairs", icon: Banknote },
       { href: "/announcements", label: "Announcements", icon: Megaphone },
       { href: "/audit", label: "Platform Audit Log", icon: ScrollText },
