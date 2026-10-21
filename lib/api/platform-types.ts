@@ -111,6 +111,7 @@ export const PORTAL_MODULES = [
   "GUARDIAN",
   "STUDENT",
   "TRANSPORT",
+  "RECEPTION",
 ] as const;
 
 export type PortalModuleName = (typeof PORTAL_MODULES)[number];

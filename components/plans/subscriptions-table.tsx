@@ -176,13 +176,9 @@ export function SubscriptionsTable({
                   {row.studentCount || "—"}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">
-                  {row.monthlyUsd
-                    ? USD.format(row.monthlyUsd)
-                    : "—"}
+                  {row.monthlyUsd ? USD.format(row.monthlyUsd) : "—"}
                   {row.price ? (
-                    <p className="text-xs font-normal text-muted-foreground">
-                      {row.price} / student / month
-                    </p>
+                    <p className="text-xs font-normal text-muted-foreground">a month</p>
                   ) : null}
                 </TableCell>
                 <TableCell className="text-xs">
@@ -330,7 +326,7 @@ function RenewDialog({
   }, [tier?.durationDays]);
 
   const studentNumber = Number(students) || 0;
-  const monthly = tier ? tier.price * (studentNumber || 1) : 0;
+  const monthly = tier ? tier.price : 0;
 
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
@@ -370,8 +366,8 @@ function RenewDialog({
           />
           <p className="text-xs text-muted-foreground">
             {tier
-              ? `${USD.format(tier.price)} per student per month = ${USD.format(monthly)} a month.`
-              : "The monthly amount follows from the tier price and this number."}
+              ? `${USD.format(tier.price)} a month for the school.`
+              : "The monthly amount follows from the tier price."}
           </p>
         </div>
 
@@ -429,7 +425,7 @@ function UpgradeDialog({
   const chosen = tiers.find((tier) => tier.id === planId);
   const students = subscription.studentCount || 0;
   const rate = quoted ? Number(quoted) : (chosen?.price ?? 0);
-  const newMonthly = rate * (students || 1);
+  const newMonthly = rate;
   const needsQuote = chosen ? chosen.price === 0 : false;
 
   return (
@@ -461,7 +457,7 @@ function UpgradeDialog({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="upgrade-price">
-            Price per student / month{needsQuote ? " (quoted)" : ""}
+            Monthly price{needsQuote ? " (quoted)" : ""}
           </Label>
           <Input
             id="upgrade-price"
@@ -474,8 +470,8 @@ function UpgradeDialog({
           />
           <p className="text-xs text-muted-foreground">
             {needsQuote
-              ? "This tier is priced on request, so set the agreed rate here."
-              : "Leave empty to use the tier's list price."}
+              ? "This tier is priced on request, so set the agreed monthly rate here."
+              : "Leave empty to use the tier's price."}
           </p>
         </div>
 

@@ -143,6 +143,7 @@ export function FinancialsClient() {
           <SubscriptionsPanel
             rows={data.subscriptions}
             payments={payments}
+            currencies={data.currencies}
             isSuperAdmin={isSuperAdmin}
             onRecordPayment={(input) =>
               run(() =>

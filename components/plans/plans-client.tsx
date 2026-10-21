@@ -8,9 +8,12 @@ import type {
   PlatformTier,
 } from "@/lib/api/plan-types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { PlansOverview } from "@/components/plans/plans-overview";
 import { SubscriptionsTable } from "@/components/plans/subscriptions-table";
 import { TierCards } from "@/components/plans/tier-cards";
+import { CreateTierDialog } from "@/components/plans/create-tier-dialog";
 
 const TABS = ["overview", "subscriptions", "tiers"] as const;
 type TabKey = (typeof TABS)[number];
@@ -23,6 +26,7 @@ export function PlansClient() {
   const [error, setError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [sweep, setSweep] = React.useState<PlatformExpirationResult | null>(null);
+  const [creatingTier, setCreatingTier] = React.useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
 
   React.useEffect(() => {
@@ -174,6 +178,22 @@ export function PlansClient() {
         </TabsContent>
 
         <TabsContent value="tiers">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+            <p className="text-sm text-muted-foreground">
+              The tiers a school can be on. Each is a yearly term with a monthly
+              price.
+            </p>
+            {isSuperAdmin ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setCreatingTier(true)}
+              >
+                <Plus size={14} aria-hidden />
+                Create tier
+              </Button>
+            ) : null}
+          </div>
           <TierCards
             tiers={tiers}
             isSuperAdmin={isSuperAdmin}
@@ -193,6 +213,20 @@ export function PlansClient() {
               )
             }
           />
+          {creatingTier ? (
+            <CreateTierDialog
+              onClose={() => setCreatingTier(false)}
+              onSubmit={(input) => {
+                setCreatingTier(false);
+                void run(() =>
+                  systemApiFetch("/platform/plans", {
+                    method: "POST",
+                    body: JSON.stringify(input),
+                  }),
+                );
+              }}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

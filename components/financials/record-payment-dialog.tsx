@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { PlatformSubscriptionFinancial } from "@/lib/api/platform-types";
+import type { PlatformCurrencyRow, PlatformSubscriptionFinancial } from "@/lib/api/platform-types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,10 +28,12 @@ const METHODS = [
 
 export function RecordPaymentDialog({
   subscription,
+  currencies,
   onClose,
   onSubmit,
 }: {
   subscription: PlatformSubscriptionFinancial;
+  currencies: PlatformCurrencyRow[];
   onClose: () => void;
   onSubmit: (input: PaymentInput) => void;
 }) {
@@ -44,6 +46,21 @@ export function RecordPaymentDialog({
   const [reference, setReference] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+
+  // The money arrives in one of the currencies the platform trades in, so
+  // the choice is a list rather than a free-text field.
+  const options = currencies.length
+    ? currencies
+    : [
+        {
+          code: subscription.currency,
+          name: subscription.currency,
+          countryCode: subscription.countryCode,
+          rateToUsd: 1,
+          autoSync: false,
+          lastSyncedAt: null,
+        },
+      ];
 
   function submit() {
     const value = Number(amount);
@@ -92,12 +109,21 @@ export function RecordPaymentDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="payment-currency">Currency</Label>
-            <Input
+            <NativeSelect
               id="payment-currency"
               value={currency}
-              maxLength={3}
-              onChange={(event) => setCurrency(event.target.value.toUpperCase())}
-            />
+              onChange={(event) => setCurrency(event.target.value)}
+            >
+              {options.map((option) => (
+                <NativeSelectOption key={option.code} value={option.code}>
+                  {option.code} · {option.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">
+              The currencies the platform trades in. The amount is converted at the
+              current rate when it reaches the profit and loss.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">

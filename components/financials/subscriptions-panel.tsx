@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RecordPaymentDialog } from "@/components/financials/record-payment-dialog";
+import type { PlatformCurrencyRow } from "@/lib/api/platform-types";
 
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -57,12 +58,14 @@ export type PaymentInput = {
 export function SubscriptionsPanel({
   rows,
   payments,
+  currencies,
   isSuperAdmin,
   onRecordPayment,
   onIssueReceipt,
 }: {
   rows: PlatformSubscriptionFinancial[];
   payments: PlatformPaymentRow[];
+  currencies: PlatformCurrencyRow[];
   isSuperAdmin: boolean;
   onRecordPayment: (input: PaymentInput) => void;
   onIssueReceipt: (input: {
@@ -196,6 +199,7 @@ export function SubscriptionsPanel({
       {paying ? (
         <RecordPaymentDialog
           subscription={paying}
+          currencies={currencies}
           onClose={() => setPaying(null)}
           onSubmit={(input) => {
             onRecordPayment(input);

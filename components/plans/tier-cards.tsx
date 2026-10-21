@@ -24,6 +24,7 @@ const PORTALS = [
   "GUARDIAN",
   "STUDENT",
   "TRANSPORT",
+  "RECEPTION",
 ];
 
 /** Human labels for the feature keys the catalogue grants. */
@@ -95,8 +96,8 @@ export function TierCards({
 
             <p className="font-mono text-lg">{priceLabel(tier)}</p>
             <p className="text-xs text-muted-foreground">
-              {tier.price > 0 ? "per student / month" : "price on request"} ·{" "}
-              {tier.durationDays} day term, then it ends
+              {tier.price > 0 ? "a month" : "price on request"} · {tier.durationDays}{" "}
+              day term, then it ends
             </p>
 
             <div>
@@ -264,7 +265,7 @@ function EditTierDialog({
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tier-price">Price per student / month (USD)</Label>
+              <Label htmlFor="tier-price">Monthly price (USD)</Label>
               <Input
                 id="tier-price"
                 type="number"
@@ -274,8 +275,7 @@ function EditTierDialog({
                 onChange={(event) => setPrice(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                A school&apos;s monthly amount is this price times its licensed
-                students.
+                What the school pays a month, whatever its size.
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
