@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { monthlyEquivalent } from "@/lib/api/plan-types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,9 +36,16 @@ const TIER_KINDS = [
   { value: "CUSTOM", label: "Customized" },
 ];
 
+const USD_CENTS = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 /**
  * Creates a new tier. A tier is billed yearly, so the term is a number of
- * days (365 is a year) and the price is what the school pays a month.
+ * days (365 is a year) and the price is what the school pays for the year.
  */
 export function CreateTierDialog({
   onClose,
@@ -51,10 +59,11 @@ export function CreateTierDialog({
   const [tier, setTier] = React.useState("CUSTOM");
   const [target, setTarget] = React.useState("");
   const [price, setPrice] = React.useState("0");
-  const [priceMax, setPriceMax] = React.useState("");
   const [durationDays, setDurationDays] = React.useState("365");
   const [modules, setModules] = React.useState<string[]>([...PORTALS]);
   const [error, setError] = React.useState<string | null>(null);
+
+  const yearly = Number(price) || 0;
 
   function toggle(module: string) {
     setModules((current) =>
@@ -76,7 +85,7 @@ export function CreateTierDialog({
       return;
     }
     if (!Number.isFinite(Number(price)) || Number(price) < 0) {
-      setError("The monthly price cannot be negative.");
+      setError("The yearly price cannot be negative.");
       return;
     }
     if (!Number.isInteger(Number(durationDays)) || Number(durationDays) <= 0) {
@@ -89,8 +98,7 @@ export function CreateTierDialog({
       tier,
       target: target.trim() || undefined,
       billingModel: "ANNUAL",
-      price: Number(price),
-      priceMax: priceMax ? Number(priceMax) : null,
+      price: yearly,
       currency: "USD",
       durationDays: Number(durationDays),
       includedModules: modules,
@@ -104,7 +112,7 @@ export function CreateTierDialog({
         <DialogHeader>
           <DialogTitle>Create a plan tier</DialogTitle>
           <DialogDescription>
-            A tier is a yearly term with a monthly price. The tier decides what a
+            A tier is a yearly term with a yearly price. The tier decides what a
             school pays for; the portals it lists are the ones the school gets.
           </DialogDescription>
         </DialogHeader>
@@ -161,26 +169,30 @@ export function CreateTierDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tier-monthly">Monthly price (USD)</Label>
+              <Label htmlFor="tier-yearly">Yearly price (USD)</Label>
               <Input
-                id="tier-monthly"
+                id="tier-yearly"
                 type="number"
                 min="0"
                 step="1"
                 value={price}
                 onChange={(event) => setPrice(event.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                {yearly > 0
+                  ? `${USD_CENTS.format(monthlyEquivalent(yearly))} a month, paid for the year.`
+                  : "Zero means the tier is priced on request."}
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tier-ceiling">Price ceiling</Label>
+              <Label htmlFor="tier-term">One term (days)</Label>
               <Input
-                id="tier-ceiling"
+                id="tier-term"
                 type="number"
-                min="0"
+                min="1"
                 step="1"
-                value={priceMax}
-                onChange={(event) => setPriceMax(event.target.value)}
-                placeholder="optional"
+                value={durationDays}
+                onChange={(event) => setDurationDays(event.target.value)}
               />
             </div>
           </div>

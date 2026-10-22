@@ -71,7 +71,7 @@ export function SubscriptionsPanel({
   onIssueReceipt: (input: {
     tenantId: string;
     licenseId?: string;
-    amount: number;
+    amount?: number;
     currency: string;
   }) => void;
 }) {
@@ -94,9 +94,10 @@ export function SubscriptionsPanel({
             <TableRow>
               <TableHead>School</TableHead>
               <TableHead>Plan</TableHead>
-              <TableHead className="text-right">Local price</TableHead>
-              <TableHead className="text-right">USD</TableHead>
-              <TableHead>Term</TableHead>
+              <TableHead className="text-right">Monthly</TableHead>
+              <TableHead className="text-right">Yearly</TableHead>
+              <TableHead className="text-right">Term due</TableHead>
+              <TableHead>Dates</TableHead>
               <TableHead>Payment</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -137,6 +138,21 @@ export function SubscriptionsPanel({
                 <TableCell className="text-right font-mono text-sm">
                   {USD.format(row.priceUsd)}
                 </TableCell>
+                <TableCell className="text-right font-mono text-sm">
+                  {row.termYears ? (
+                    <>
+                      {row.termYears}{" "}
+                      {row.termYears === 1 ? "year" : "years"}
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {row.localTermTotal === null
+                          ? "—"
+                          : LOCAL.format(row.localTermTotal)}
+                      </p>
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {formatDate(row.startedAt)} → {formatDate(row.expiresAt)}
                 </TableCell>
@@ -170,7 +186,10 @@ export function SubscriptionsPanel({
                           onIssueReceipt({
                             tenantId: row.tenantId,
                             licenseId: row.licenseId ?? undefined,
-                            amount: row.paidAmount || row.priceUsd,
+                            // What has been paid is what the receipt says. With
+                            // nothing paid, the server prices the receipt from
+                            // the term the school bought.
+                            ...(row.paidAmount > 0 ? { amount: row.paidAmount } : {}),
                             currency: row.currency,
                           })
                         }

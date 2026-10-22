@@ -30,7 +30,14 @@ export type PlatformProvisionResult = {
     id: string;
     planCode: string | null;
     studentCount: number;
+    /** How many years the first term runs for. */
+    years: number;
+    /** The yearly rate the licence bills. */
+    yearlyUsd: number;
+    /** The monthly equivalent of the yearly rate. */
     monthlyUsd: number;
+    /** What the whole term costs. */
+    termTotalUsd: number;
   } | null;
   modules: string[];
   featureFlags: Record<string, boolean>;

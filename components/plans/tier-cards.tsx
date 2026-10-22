@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import type { PlatformTier } from "@/lib/api/plan-types";
+import { monthlyEquivalent } from "@/lib/api/plan-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,12 +52,16 @@ const USD = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+const USD_CENTS = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function priceLabel(tier: PlatformTier) {
-  if (tier.priceMax) {
-    return `${USD.format(tier.price)} – ${USD.format(tier.priceMax)}`;
-  }
   if (tier.price === 0) return "Quote based";
-  return USD.format(tier.price);
+  return `${USD.format(tier.price)} a year`;
 }
 
 export function TierCards({
@@ -94,11 +99,29 @@ export function TierCards({
               <Badge variant="outline">{tier.code}</Badge>
             </div>
 
-            <p className="font-mono text-lg">{priceLabel(tier)}</p>
-            <p className="text-xs text-muted-foreground">
-              {tier.price > 0 ? "a month" : "price on request"} · {tier.durationDays}{" "}
-              day term, then it ends
-            </p>
+            <div className="flex flex-col gap-0.5">
+              {tier.price > 0 ? (
+                <>
+                  <p className="font-mono text-2xl leading-none">
+                    {USD_CENTS.format(monthlyEquivalent(tier.price))}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">
+                      / month
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {USD.format(tier.price)} billed yearly · a year is the shortest
+                    term
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-mono text-2xl leading-none">Quote based</p>
+                  <p className="text-xs text-muted-foreground">
+                    The agreed yearly rate is carried by the licence that quotes it
+                  </p>
+                </>
+              )}
+            </div>
 
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -237,12 +260,12 @@ function EditTierDialog({
   onSubmit: (input: Record<string, unknown>) => void;
 }) {
   const [price, setPrice] = React.useState(String(tier.price));
-  const [priceMax, setPriceMax] = React.useState(
-    tier.priceMax === null ? "" : String(tier.priceMax),
-  );
   const [durationDays, setDurationDays] = React.useState(String(tier.durationDays));
   const [target, setTarget] = React.useState(tier.target ?? "");
   const [modules, setModules] = React.useState<string[]>(tier.includedModules);
+
+  const yearly = Number(price) || 0;
+  const monthly = monthlyEquivalent(yearly);
 
   function toggle(module: string) {
     setModules((current) =>
@@ -263,36 +286,31 @@ function EditTierDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tier-price">Monthly price (USD)</Label>
-              <Input
-                id="tier-price"
-                type="number"
-                min="0"
-                step="1"
-                value={price}
-                onChange={(event) => setPrice(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                What the school pays a month, whatever its size.
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tier-price-max">Price ceiling</Label>
-              <Input
-                id="tier-price-max"
-                type="number"
-                min="0"
-                step="1"
-                value={priceMax}
-                onChange={(event) => setPriceMax(event.target.value)}
-              />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tier-price">Yearly price (USD)</Label>
+            <Input
+              id="tier-price"
+              type="number"
+              min="0"
+              step="1"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              What the school pays for a year, whatever its size.{" "}
+              {yearly > 0 ? (
+                <>
+                  That is {USD_CENTS.format(monthly)} a month. Zero means the tier is
+                  priced on request.
+                </>
+              ) : (
+                "Zero means the tier is priced on request."
+              )}
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tier-duration">Term (days)</Label>
+            <Label htmlFor="tier-duration">One term (days)</Label>
             <Input
               id="tier-duration"
               type="number"
@@ -302,8 +320,9 @@ function EditTierDialog({
               onChange={(event) => setDurationDays(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              365 gives a year. The licence ends on this date and the school is
-              locked until it is renewed.
+              365 gives a year. A two year renewal runs twice this long. The
+              licence ends on its end date and the school is locked until it is
+              renewed.
             </p>
           </div>
 
@@ -342,8 +361,7 @@ function EditTierDialog({
             type="button"
             onClick={() =>
               onSubmit({
-                price: Number(price) || 0,
-                priceMax: priceMax ? Number(priceMax) : null,
+                price: yearly,
                 durationDays: Number(durationDays) || 365,
                 target: target.trim() || null,
                 includedModules: modules,

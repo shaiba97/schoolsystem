@@ -145,13 +145,15 @@ export function PlansClient() {
             rows={subscriptions}
             tiers={tiers}
             isSuperAdmin={isSuperAdmin}
-            onRenew={(tenantId, expiresAt, studentCount) =>
+            onRenew={(tenantId, expiresAt, studentCount, years, yearlyPrice) =>
               run(() =>
                 systemApiFetch(`/platform/plans/subscriptions/${tenantId}/renew`, {
                   method: "POST",
                   body: JSON.stringify({
                     ...(expiresAt ? { expiresAt } : {}),
                     ...(studentCount ? { studentCount } : {}),
+                    ...(years ? { years } : {}),
+                    ...(yearlyPrice ? { yearlyPrice } : {}),
                   }),
                 }),
               )
@@ -163,13 +165,14 @@ export function PlansClient() {
                 }),
               )
             }
-            onUpgrade={(tenantId, planId, pricePerStudent) =>
+            onUpgrade={(tenantId, planId, yearlyPrice, years) =>
               run(() =>
                 systemApiFetch(`/platform/plans/subscriptions/${tenantId}/upgrade`, {
                   method: "POST",
                   body: JSON.stringify({
                     planId,
-                    ...(pricePerStudent ? { pricePerStudent } : {}),
+                    ...(yearlyPrice ? { yearlyPrice } : {}),
+                    ...(years ? { years } : {}),
                   }),
                 }),
               )
@@ -180,8 +183,8 @@ export function PlansClient() {
         <TabsContent value="tiers">
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
             <p className="text-sm text-muted-foreground">
-              The tiers a school can be on. Each is a yearly term with a monthly
-              price.
+              The tiers a school can be on. Each is a yearly term with a flat
+              yearly price.
             </p>
             {isSuperAdmin ? (
               <Button

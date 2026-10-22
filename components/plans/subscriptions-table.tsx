@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowUpRight, Lock, RefreshCw, Trash2 } from "lucide-react";
 import type { PlatformSubscription, PlatformTier } from "@/lib/api/plan-types";
+import { monthlyEquivalent, termTotal } from "@/lib/api/plan-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,16 @@ const USD = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
 });
+
+const USD_CENTS = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** The years a school may buy at once. A year is the shortest term. */
+const TERM_YEARS = [1, 2, 3, 4, 5] as const;
 
 const STATUS_VARIANT = {
   ACTIVE: "default",
@@ -70,9 +81,20 @@ export function SubscriptionsTable({
   rows: PlatformSubscription[];
   tiers: PlatformTier[];
   isSuperAdmin: boolean;
-  onRenew: (tenantId: string, expiresAt?: string, studentCount?: number) => void;
+  onRenew: (
+    tenantId: string,
+    expiresAt?: string,
+    studentCount?: number,
+    years?: number,
+    yearlyPrice?: number,
+  ) => void;
   onTerminate: (tenantId: string) => void;
-  onUpgrade: (tenantId: string, planId: string, pricePerStudent?: number) => void;
+  onUpgrade: (
+    tenantId: string,
+    planId: string,
+    yearlyPrice?: number,
+    years?: number,
+  ) => void;
 }) {
   const [search, setSearch] = React.useState("");
   const [tier, setTier] = React.useState("");
@@ -152,7 +174,7 @@ export function SubscriptionsTable({
               <TableHead>Tier</TableHead>
               <TableHead className="text-right">Students</TableHead>
               <TableHead className="text-right">Monthly</TableHead>
-              <TableHead>Term</TableHead>
+              <TableHead className="text-right">Term</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Lock</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -176,10 +198,28 @@ export function SubscriptionsTable({
                   {row.studentCount || "—"}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">
-                  {row.monthlyUsd ? USD.format(row.monthlyUsd) : "—"}
-                  {row.price ? (
-                    <p className="text-xs font-normal text-muted-foreground">a month</p>
-                  ) : null}
+                  {row.monthlyUsd ? (
+                    <>
+                      {USD_CENTS.format(row.monthlyUsd)}
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {USD.format(row.yearlyPrice)} a year
+                      </p>
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono text-sm">
+                  {row.termYears ? (
+                    <>
+                      {row.termYears} {row.termYears === 1 ? "year" : "years"}
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {USD.format(row.termTotal)} due
+                      </p>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
                 <TableCell className="text-xs">
                   <span className="font-mono">
@@ -244,8 +284,8 @@ export function SubscriptionsTable({
           subscription={renewing}
           tier={tiers.find((row) => row.code === renewing.tier)}
           onClose={() => setRenewing(null)}
-          onSubmit={(expiresAt, studentCount) => {
-            onRenew(renewing.tenantId, expiresAt, studentCount);
+          onSubmit={(expiresAt, studentCount, years, yearlyPrice) => {
+            onRenew(renewing.tenantId, expiresAt, studentCount, years, yearlyPrice);
             setRenewing(null);
           }}
         />
@@ -256,8 +296,8 @@ export function SubscriptionsTable({
           subscription={upgrading}
           tiers={tiers}
           onClose={() => setUpgrading(null)}
-          onSubmit={(planId, pricePerStudent) => {
-            onUpgrade(upgrading.tenantId, planId, pricePerStudent);
+          onSubmit={(planId, yearlyPrice, years) => {
+            onUpgrade(upgrading.tenantId, planId, yearlyPrice, years);
             setUpgrading(null);
           }}
         />
@@ -304,12 +344,18 @@ function RenewDialog({
   subscription: PlatformSubscription;
   tier?: PlatformTier;
   onClose: () => void;
-  onSubmit: (expiresAt?: string, studentCount?: number) => void;
+  onSubmit: (
+    expiresAt?: string,
+    studentCount?: number,
+    years?: number,
+    yearlyPrice?: number,
+  ) => void;
 }) {
   const [date, setDate] = React.useState("");
   const [students, setStudents] = React.useState(
     String(subscription.studentCount || ""),
   );
+  const [years, setYears] = React.useState(1);
 
   // The term runs a year from the renewal, so the default end date is shown
   // rather than left blank. It is computed outside the render pass, because
@@ -326,7 +372,10 @@ function RenewDialog({
   }, [tier?.durationDays]);
 
   const studentNumber = Number(students) || 0;
-  const monthly = tier ? tier.price : 0;
+  // The licence's own rate, or the tier's, is what the renewal bills.
+  const yearly = subscription.yearlyPrice || tier?.price || 0;
+  const monthly = monthlyEquivalent(yearly);
+  const due = termTotal(yearly, years);
 
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
@@ -334,12 +383,32 @@ function RenewDialog({
         <DialogHeader>
           <DialogTitle>Renew the subscription</DialogTitle>
           <DialogDescription>
-            {subscription.name} is on {subscription.tier ?? "no tier"}. Leave the date
-            empty to use the tier term
-            {tier ? ` of ${tier.durationDays} days` : ""}. A date in the past ends
-            the school immediately.
+            {subscription.name} is on {subscription.tier ?? "no tier"}. A term is
+            whole years, and a year is the shortest one.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="renew-years">Term</Label>
+          <div className="flex gap-1" role="group" aria-label="Term in years">
+            {TERM_YEARS.map((option) => (
+              <Button
+                key={option}
+                type="button"
+                size="sm"
+                variant={years === option ? "default" : "outline"}
+                onClick={() => setYears(option)}
+                aria-pressed={years === option}
+              >
+                {option} {option === 1 ? "year" : "years"}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            The new term ends {defaultEnd}. Leave the date below empty to use
+            this.
+          </p>
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="renew-date">New end date</Label>
@@ -350,7 +419,7 @@ function RenewDialog({
             onChange={(event) => setDate(event.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Empty renews to {defaultEnd} ({tier?.durationDays ?? 365} day term).
+            A date in the past ends the school immediately.
           </p>
         </div>
 
@@ -365,9 +434,7 @@ function RenewDialog({
             onChange={(event) => setStudents(event.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            {tier
-              ? `${USD.format(tier.price)} a month for the school.`
-              : "The monthly amount follows from the tier price."}
+            The size of the school, recorded against the licence.
           </p>
         </div>
 
@@ -379,10 +446,14 @@ function RenewDialog({
             </dd>
           </div>
           <div className="flex items-center justify-between py-2">
-            <dt className="text-sm text-muted-foreground">New monthly amount</dt>
+            <dt className="text-sm text-muted-foreground">Monthly equivalent</dt>
             <dd className="font-mono text-sm">
-              {monthly ? USD.format(monthly) : "—"}
+              {monthly ? USD_CENTS.format(monthly) : "—"}
             </dd>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <dt className="text-sm text-muted-foreground">Due now</dt>
+            <dd className="font-mono text-sm">{due ? USD.format(due) : "—"}</dd>
           </div>
         </dl>
 
@@ -396,6 +467,8 @@ function RenewDialog({
               onSubmit(
                 date || undefined,
                 studentNumber > 0 ? studentNumber : undefined,
+                years,
+                yearly || undefined,
               )
             }
           >
@@ -416,16 +489,19 @@ function UpgradeDialog({
   subscription: PlatformSubscription;
   tiers: PlatformTier[];
   onClose: () => void;
-  onSubmit: (planId: string, pricePerStudent?: number) => void;
+  onSubmit: (planId: string, yearlyPrice?: number, years?: number) => void;
 }) {
   const [planId, setPlanId] = React.useState(
     tiers.find((tier) => tier.code !== subscription.tier)?.id ?? tiers[0]?.id ?? "",
   );
   const [quoted, setQuoted] = React.useState("");
+  const [years, setYears] = React.useState(1);
   const chosen = tiers.find((tier) => tier.id === planId);
   const students = subscription.studentCount || 0;
-  const rate = quoted ? Number(quoted) : (chosen?.price ?? 0);
-  const newMonthly = rate;
+  // A quoted tier has no list price, so the operator states the yearly rate.
+  const yearly = quoted ? Number(quoted) : (chosen?.price ?? 0);
+  const monthly = monthlyEquivalent(yearly);
+  const due = termTotal(yearly, years);
   const needsQuote = chosen ? chosen.price === 0 : false;
 
   return (
@@ -436,7 +512,7 @@ function UpgradeDialog({
           <DialogDescription>
             {subscription.name} moves from {subscription.tier ?? "no tier"}. The
             portals the new tier includes are switched on for the school, and the
-            tier&apos;s year starts now.
+            new term starts now.
           </DialogDescription>
         </DialogHeader>
 
@@ -456,9 +532,7 @@ function UpgradeDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="upgrade-price">
-            Monthly price{needsQuote ? " (quoted)" : ""}
-          </Label>
+          <Label htmlFor="upgrade-price">Yearly price{needsQuote ? " (quoted)" : ""}</Label>
           <Input
             id="upgrade-price"
             type="number"
@@ -470,9 +544,27 @@ function UpgradeDialog({
           />
           <p className="text-xs text-muted-foreground">
             {needsQuote
-              ? "This tier is priced on request, so set the agreed monthly rate here."
+              ? "This tier is priced on request, so set the agreed yearly rate here."
               : "Leave empty to use the tier's price."}
           </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="upgrade-years">Term</Label>
+          <div className="flex gap-1" role="group" aria-label="Term in years">
+            {TERM_YEARS.map((option) => (
+              <Button
+                key={option}
+                type="button"
+                size="sm"
+                variant={years === option ? "default" : "outline"}
+                onClick={() => setYears(option)}
+                aria-pressed={years === option}
+              >
+                {option} {option === 1 ? "year" : "years"}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <dl className="divide-y border-t">
@@ -481,10 +573,14 @@ function UpgradeDialog({
             <dd className="font-mono text-sm">{students || "—"}</dd>
           </div>
           <div className="flex items-center justify-between py-2">
-            <dt className="text-sm text-muted-foreground">New monthly amount</dt>
+            <dt className="text-sm text-muted-foreground">Monthly equivalent</dt>
             <dd className="font-mono text-sm">
-              {newMonthly ? USD.format(newMonthly) : "—"}
+              {monthly ? USD_CENTS.format(monthly) : "—"}
             </dd>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <dt className="text-sm text-muted-foreground">Due now</dt>
+            <dd className="font-mono text-sm">{due ? USD.format(due) : "—"}</dd>
           </div>
         </dl>
 
@@ -496,7 +592,7 @@ function UpgradeDialog({
             type="button"
             disabled={!planId}
             onClick={() =>
-              onSubmit(planId, quoted ? Number(quoted) : undefined)
+              onSubmit(planId, quoted ? Number(quoted) : undefined, years)
             }
           >
             Upgrade

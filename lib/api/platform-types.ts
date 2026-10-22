@@ -215,8 +215,17 @@ export type PlatformSubscriptionFinancial = {
   currency: string;
   /** False when the school bills in a currency with no configured rate. */
   currencyConfigured: boolean;
+  /** The yearly rate the licence bills. */
+  yearlyPrice: number;
+  /** The monthly equivalent of the yearly rate. */
   localPrice: number | null;
+  /** What the whole term costs in the school's own currency. */
+  localTermTotal: number | null;
   priceUsd: number;
+  /** How many years the term runs for. */
+  termYears: number | null;
+  /** What the whole term costs. */
+  termTotal: number;
   rateToUsd: number | null;
   paidAmount: number;
   outstanding: number | null;

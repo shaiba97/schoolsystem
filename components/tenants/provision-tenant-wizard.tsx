@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Check, CircleCheck } from "lucide-react";
 import { ApiError, systemApiFetch } from "@/lib/api/client";
 import type { PlatformTier } from "@/lib/api/plan-types";
+import { monthlyEquivalent, termTotal } from "@/lib/api/plan-types";
 import type { PlatformMarket, PlatformProvisionResult } from "@/lib/api/provision-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,16 @@ const USD = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+const USD_CENTS = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** The years a school may be provisioned for. A year is the shortest term. */
+const TERM_YEARS = [1, 2, 3, 4, 5] as const;
+
 type FormState = {
   name: string;
   nameAr: string;
@@ -50,6 +61,7 @@ type FormState = {
   phone: string;
   countryCode: string;
   planCode: string;
+  years: string;
   studentCount: string;
   adminName: string;
   adminEmail: string;
@@ -64,6 +76,7 @@ const EMPTY: FormState = {
   phone: "",
   countryCode: "SD",
   planCode: "",
+  years: "1",
   studentCount: "",
   adminName: "",
   adminEmail: "",
@@ -83,7 +96,12 @@ export function ProvisionTenantWizard() {
   const market = MARKETS.find((entry) => entry.code === form.countryCode) ?? MARKETS[0];
   const plan = plans.find((entry) => entry.code === form.planCode) ?? null;
   const students = Number(form.studentCount) || 0;
-  const monthlyUsd = plan ? plan.price * (students > 0 ? students : 1) : 0;
+  const years = Number(form.years) || 1;
+  // The tier price is the yearly amount the school pays. The monthly figure
+  // is derived from it, and the term total is the yearly rate times the years.
+  const yearlyUsd = plan ? plan.price : 0;
+  const monthlyUsd = monthlyEquivalent(yearlyUsd);
+  const termTotalUsd = termTotal(yearlyUsd, years);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -146,6 +164,7 @@ export function ProvisionTenantWizard() {
             adminPhone: form.adminPhone.trim() || undefined,
             adminPassword: form.adminPassword,
             planCode: form.planCode || undefined,
+            years,
             studentCount: students > 0 ? students : undefined,
           }),
         },
@@ -206,11 +225,22 @@ export function ProvisionTenantWizard() {
           </div>
           {result.license ? (
             <div className="flex items-center justify-between py-2">
-              <dt className="text-sm text-muted-foreground">Monthly amount</dt>
+              <dt className="text-sm text-muted-foreground">Term</dt>
               <dd className="font-mono text-sm">
-                {USD.format(result.license.monthlyUsd)}{" "}
-                <span className="text-xs text-muted-foreground">
+                {result.license.years} {result.license.years === 1 ? "year" : "years"}
+                <span className="ml-2 text-xs text-muted-foreground">
                   {result.license.studentCount} students
+                </span>
+              </dd>
+            </div>
+          ) : null}
+          {result.license ? (
+            <div className="flex items-center justify-between py-2">
+              <dt className="text-sm text-muted-foreground">Due for the term</dt>
+              <dd className="font-mono text-sm">
+                {USD.format(result.license.termTotalUsd)}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {USD_CENTS.format(result.license.monthlyUsd)} a month
                 </span>
               </dd>
             </div>
@@ -364,9 +394,9 @@ export function ProvisionTenantWizard() {
           <div>
             <h2 className="text-sm font-semibold">Plan</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              The plan sets the price per student per month. The school gets every
-              portal and every feature flag, and the licence covers the student
-              count you enter.
+              The plan sets the yearly price. The school gets every portal and
+              every feature flag, and the licence covers the student count you
+              enter.
             </p>
             {plans.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
@@ -393,19 +423,40 @@ export function ProvisionTenantWizard() {
                       </span>
                     </label>
                     <span className="font-mono text-sm">
-                      {entry.price.toLocaleString("en-US", {
-                        style: "currency",
-                        currency: entry.currency,
-                        maximumFractionDigits: 0,
-                      })}
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        / student / month
-                      </span>
+                      {entry.price === 0
+                        ? "Quote based"
+                        : USD_CENTS.format(monthlyEquivalent(entry.price))}
+                      {entry.price > 0 ? (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          / month
+                        </span>
+                      ) : null}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className="flex max-w-xs flex-col gap-1.5">
+            <Label htmlFor="term-years">Term</Label>
+            <div className="flex gap-1" role="group" aria-label="Term in years">
+              {TERM_YEARS.map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  size="sm"
+                  variant={years === option ? "default" : "outline"}
+                  onClick={() => update("years", String(option))}
+                  aria-pressed={years === option}
+                >
+                  {option} {option === 1 ? "year" : "years"}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The first licence runs for this long. A year is the shortest term.
+            </p>
           </div>
 
           <div className="flex max-w-xs flex-col gap-1.5">
@@ -420,9 +471,8 @@ export function ProvisionTenantWizard() {
               placeholder="400"
             />
             <p className="text-xs text-muted-foreground">
-              {students > 0 && plan
-                ? `Monthly amount: ${USD.format(monthlyUsd)} (${plan.price} per student)`
-                : "The monthly amount follows from the plan price and this number."}
+              The size of the school, recorded against the licence. The price does
+              not depend on it.
             </p>
           </div>
         </section>
@@ -517,9 +567,21 @@ export function ProvisionTenantWizard() {
                 <dd className="font-mono text-sm">{students || "â€”"}</dd>
               </div>
               <div className="flex items-center justify-between gap-4 py-2">
-                <dt className="text-sm text-muted-foreground">Monthly amount</dt>
+                <dt className="text-sm text-muted-foreground">Term</dt>
                 <dd className="font-mono text-sm">
-                  {plan ? USD.format(monthlyUsd) : "â€”"}
+                  {years} {years === 1 ? "year" : "years"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <dt className="text-sm text-muted-foreground">Monthly equivalent</dt>
+                <dd className="font-mono text-sm">
+                  {plan ? USD_CENTS.format(monthlyUsd) : "—"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <dt className="text-sm text-muted-foreground">Due for the term</dt>
+                <dd className="font-mono text-sm">
+                  {plan ? USD.format(termTotalUsd) : "—"}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4 py-2">

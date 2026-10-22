@@ -75,7 +75,7 @@ function describeChange(entry: {
     case "platform.tier.created":
       return `Tier ${humanValue(next.code)} created`;
     case "platform.tier.updated":
-      return `Price set to ${humanValue(next.price)}, ${humanValue(next.durationDays)} day term`;
+      return `Yearly price set to ${humanValue(next.price)}, ${humanValue(next.durationDays)} day term`;
     case "platform.tier.deleted":
       return `Tier ${humanValue(old.code)} deleted`;
     case "platform.payment.recorded":
@@ -87,7 +87,9 @@ function describeChange(entry: {
     case "platform.currency.updated":
       return `Rate ${humanValue(next.previousRateToUsd)} to ${humanValue(next.rateToUsd)}`;
     case "platform.subscription.renewed":
-      return `Term extended to ${humanValue(next.expiresAt)}`;
+      return `Term extended to ${humanValue(next.expiresAt)}${
+        next.years ? ` for ${humanValue(next.years)} years` : ""
+      }`;
     case "platform.subscription.terminated":
       return "Subscription ended and the school was locked";
     case "platform.subscription.upgraded":
