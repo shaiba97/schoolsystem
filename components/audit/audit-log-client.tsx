@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<string, string> = {
   "tenant.flag.changed": "Feature flag switched",
   "tenant.provisioned": "School provisioned",
   "tenant.unarchived": "School restored",
+  "tenant.tier_change_requested": "Tier change requested",
   "platform.tier.created": "Tier created",
   "platform.tier.updated": "Tier updated",
   "platform.tier.deleted": "Tier deleted",
@@ -72,6 +73,8 @@ function describeChange(entry: {
       return `Provisioned with plan ${humanValue(next.planCode)}, ${humanValue(next.modules)} portals`;
     case "tenant.unarchived":
       return "School restored from the archive";
+    case "tenant.tier_change_requested":
+      return `School requested tier ${humanValue(next.requestedPlan)} for ${humanValue(next.requestedYears)} years (${humanValue(next.requestedTermTotal)} total)${next.note ? ` · "${next.note}"` : ""}`;
     case "platform.tier.created":
       return `Tier ${humanValue(next.code)} created`;
     case "platform.tier.updated":

@@ -11,6 +11,7 @@ const PORTAL_PATHS = [
   "/announcements",
   "/plans",
   "/financials",
+  "/inquiries",
 ];
 
 /**
@@ -47,6 +48,7 @@ export const config = {
     "/announcements",
     "/plans",
     "/financials",
+    "/inquiries",
     "/dashboard/:path*",
     "/tenants/:path*",
     "/health/:path*",
@@ -54,6 +56,7 @@ export const config = {
     "/announcements/:path*",
     "/plans/:path*",
     "/financials/:path*",
+    "/inquiries/:path*",
     "/login",
   ],
 };

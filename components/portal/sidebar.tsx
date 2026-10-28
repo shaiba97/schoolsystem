@@ -8,6 +8,7 @@ import {
   BadgeDollarSign,
   Banknote,
   Building2,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -40,6 +41,11 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/tenants", label: "School Directory", icon: Building2 },
       { href: "/tenants/new", label: "Provision School", icon: Plus },
     ],
+  },
+  {
+    title: "Support",
+    roles: ["SUPER_ADMIN", "SUPPORT"],
+    items: [{ href: "/inquiries", label: "Inquiries & Contacts", icon: Inbox }],
   },
   {
     title: "Platform Operations",
