@@ -1,4 +1,4 @@
-const API_URL = process.env.SYSTEM_API_URL || "http://localhost:3000/api";
+const API_URL = process.env.SYSTEM_API_URL || "https://schoolbackend-7n8a.onrender.com/api";
 
 export const SYSTEM_AUTH_HEADER = "authorization";
 /**
