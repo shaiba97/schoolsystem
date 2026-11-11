@@ -1,4 +1,4 @@
-const API_URL = process.env.SYSTEM_API_URL || "https://schoolbackend-7n8a.onrender.com/api";
+const API_URL = process.env.SYSTEM_API_URL || "https://schoolbackend-gilt.vercel.app/api";
 
 export const SYSTEM_AUTH_HEADER = "authorization";
 /**
